@@ -1,0 +1,69 @@
+{
+  "name": "Footnote Change Classification Taxonomy & Severity Rubric",
+  "version": "1.0",
+  "authoritative_status": "Approved Business Rules",
+  "categories": [
+    {
+      "name": "Accounting Policy Change",
+      "definition": "Alterations in accounting principles, methods of adoption (e.g., modified retrospective vs full retrospective), revenue recognition criteria, or depreciation/amortization methodology.",
+      "default_severity": "HIGH",
+      "materiality_rationale": "Directly changes reported figures across comparison periods and impacts fundamental valuation models."
+    },
+    {
+      "name": "New Disclosure",
+      "definition": "Disclosures, tables, or notes appearing in the current period that were entirely absent in the prior comparison filing.",
+      "default_severity": "HIGH",
+      "materiality_rationale": "Signals new business lines, emerging legal liabilities, newly originated debt tranches, or regulatory investigations."
+    },
+    {
+      "name": "Removed Disclosure",
+      "definition": "Information, tables, or commitments present in the previous filing that have been omitted without an explicit explanation.",
+      "default_severity": "HIGH",
+      "materiality_rationale": "Could indicate resolution of a risk or an intentional omission of adverse conditions."
+    },
+    {
+      "name": "Risk Factor Change",
+      "definition": "Modifications to contingencies, litigation reserves, concentration of credit risk, or supply-chain dependencies.",
+      "default_severity": "HIGH",
+      "materiality_rationale": "Directly impacts discount rates and downside scenarios."
+    },
+    {
+      "name": "Estimate Revision",
+      "definition": "Changes in management assumptions, discount rates, fair value hierarchy levels (Level 1/2/3 inputs), credit loss allowances (CECL), or impairment testing models.",
+      "default_severity": "MEDIUM",
+      "materiality_rationale": "Subjective adjustments that may signal earnings quality issues or shifting business expectations."
+    },
+    {
+      "name": "Quantitative Change",
+      "definition": "Changes in numerical figures such as debt principal amounts, contractual maturity schedules, lease liabilities, or segment operating margins.",
+      "default_severity": "MEDIUM",
+      "materiality_rationale": "Routine financial progression or updates to balance sheet balances."
+    },
+    {
+      "name": "Reclassification",
+      "definition": "Shifting of items between balance sheet or income statement line items or segment definitions.",
+      "default_severity": "MEDIUM",
+      "materiality_rationale": "Distorts historical trend analysis unless restated."
+    },
+    {
+      "name": "Language Change",
+      "definition": "Substantive alterations in descriptive phrasing, conditional wording (e.g., 'probable' changed to 'possible'), or tone.",
+      "default_severity": "LOW",
+      "materiality_rationale": "May indicate subtle shifts in legal posture or executive sentiment."
+    }
+  ],
+  "severity_rubric": {
+    "HIGH": {
+      "definition": "Material disclosures capable of altering valuation, leverage ratios, risk profiles, or compliance standing.",
+      "analyst_sla": "Requires immediate analyst review within same trading session."
+    },
+    "MEDIUM": {
+      "definition": "Notable operational, structural, or estimate adjustments that do not immediately threaten financial solvency.",
+      "analyst_sla": "Review during standard quarterly earnings model update."
+    },
+    "LOW": {
+      "definition": "Minor language, technical, or standard recurring updates.",
+      "analyst_sla": "Informational only; examine at analyst discretion."
+    }
+  }
+}
