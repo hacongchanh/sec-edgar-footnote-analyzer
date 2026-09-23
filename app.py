@@ -98,7 +98,7 @@ with st.sidebar:
             help="Required by SEC: your name and email",
         )
     else:
-        st.success(f"✅ SEC User-Agent: {user_agent[:30]}…")
+        st.success("✅ SEC User-Agent configured")
 
     st.divider()
     st.header("📖 Example Queries")
