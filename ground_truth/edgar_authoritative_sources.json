@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "SEC Official Registries & Filing Archives",
+  "version": "1.0",
+  "authority": "U.S. Securities and Exchange Commission (SEC)",
+  "trust_level": "Authoritative Primary Ground Truth",
+  "endpoints": {
+    "ticker_directory": {
+      "url": "https://www.sec.gov/files/company_tickers.json",
+      "description": "Master mapping of stock ticker symbols to 10-digit Central Index Keys (CIKs) and legal entity names.",
+      "cache_ttl_hours": 24,
+      "format": "JSON"
+    },
+    "company_submissions": {
+      "url_template": "https://data.sec.gov/submissions/CIK{cik.zfill(10)}.json",
+      "description": "Chronological history of all regulatory filings submitted by the entity, including accession numbers, filing dates, and report periods.",
+      "cache_ttl_hours": 1,
+      "format": "JSON"
+    },
+    "filing_archives": {
+      "base_url": "https://www.sec.gov/Archives/edgar/data/",
+      "summary_manifest": "FilingSummary.xml",
+      "description": "Individual filing accession directory containing pre-isolated XBRL footnote reports (e.g. R8.htm) and full-text filings.",
+      "format": "XML/HTML"
+    }
+  },
+  "compliance_and_governance": {
+    "user_agent_requirement": "Sample: User-Agent: SampleCompany Analyst contact@sample.com (mandatory email format)",
+    "rate_limit_max_requests_per_second": 10,
+    "internal_delay_seconds": 0.12,
+    "caching_policy": "Filing artifacts are immutable once filed; historical footnote HTML may be permanently cached."
+  }
+}
