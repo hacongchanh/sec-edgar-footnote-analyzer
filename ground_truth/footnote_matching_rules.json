@@ -1,0 +1,30 @@
+{
+  "name": "Footnote Structural Taxonomy & Matching Rules",
+  "version": "1.0",
+  "authoritative_status": "Approved Business Rules",
+  "standard_note_taxonomy": [
+    { "topic": "ASC 235", "title": "Summary of Significant Accounting Policies", "typical_index": 1 },
+    { "topic": "ASC 606", "title": "Revenue from Contracts with Customers", "typical_index": 2 },
+    { "topic": "ASC 260", "title": "Earnings Per Share", "typical_index": 3 },
+    { "topic": "ASC 820", "title": "Fair Value Measurement & Financial Instruments", "typical_index": 4 },
+    { "topic": "ASC 470", "title": "Debt & Financing Arrangements", "typical_index": 5 },
+    { "topic": "ASC 842", "title": "Leases", "typical_index": 6 },
+    { "topic": "ASC 718", "title": "Stock-Based Compensation", "typical_index": 7 },
+    { "topic": "ASC 740", "title": "Income Taxes", "typical_index": 8 },
+    { "topic": "ASC 450", "title": "Commitments and Contingencies", "typical_index": 9 },
+    { "topic": "ASC 280", "title": "Segment Reporting", "typical_index": 10 }
+  ],
+  "matching_priority_order": [
+    "1. Exact Report ShortName match in FilingSummary.xml",
+    "2. Explicit Note Number match (e.g. Note 3 to Note 3) when titles are semantically congruent",
+    "3. High-confidence semantic title match when numbering shifted due to note insertion/deletion",
+    "4. Unmatched current notes classified as 'New Disclosure' (HIGH severity)",
+    "5. Unmatched previous notes classified as 'Removed Disclosure' (HIGH severity)"
+  ],
+  "filing_selection_defaults": {
+    "default_form_type": "10-Q",
+    "default_comparison_mode": "sequential",
+    "default_current_period": "latest",
+    "default_previous_period": "immediately_preceding"
+  }
+}
