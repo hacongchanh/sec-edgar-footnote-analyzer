@@ -157,11 +157,28 @@ if analyze_button and query.strip():
             parsed = parser.parse(query)
 
             # Input validation control (Step 9: Check for missing information)
-            if not parsed.is_valid:
+            is_valid = getattr(parsed, "is_valid", None)
+            missing_fields = getattr(parsed, "missing_fields", [])
+            clarification_prompt = getattr(parsed, "clarification_prompt", None)
+
+            # Defensive fallback check in case of stale module cache
+            if is_valid is None or not is_valid or not getattr(parsed, "form_type", None) or not getattr(parsed, "filing_period_current", None):
                 progress_bar.empty()
-                st.warning(f"⚠️ **Incomplete Request:** {parsed.clarification_prompt}")
-                if parsed.missing_fields:
-                    st.info("**Missing required information:**\n- " + "\n- ".join(parsed.missing_fields))
+                if not clarification_prompt:
+                    missing_details = []
+                    if not getattr(parsed, "form_type", None):
+                        missing_details.append("Filing type (10-K or 10-Q)")
+                    if not getattr(parsed, "filing_period_current", None):
+                        missing_details.append("Filing timeframe/period (e.g., 'latest')")
+                    clarification_prompt = (
+                        "Please specify whether you want a 10-K (annual) or 10-Q (quarterly) filing, and which period to analyze. "
+                        "For example: 'Analyze Apple's latest 10-Q filing vs the previous quarter'."
+                    )
+                    missing_fields = missing_details or missing_fields
+
+                st.warning(f"⚠️ **Incomplete Request:** {clarification_prompt}")
+                if missing_fields:
+                    st.info("**Missing required information:**\n- " + "\n- ".join(missing_fields))
                 st.stop()
 
             with st.expander("📋 Parsed Query", expanded=False):
