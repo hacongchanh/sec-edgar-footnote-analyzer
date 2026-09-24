@@ -89,7 +89,7 @@ with st.sidebar:
             help="Get a free key at https://aistudio.google.com/apikey",
         )
     else:
-        st.success("✅ Gemini API Key loaded from .env")
+        st.success("✅ Gemini API Key configured")
 
     if not user_agent:
         user_agent = st.text_input(
@@ -155,6 +155,14 @@ if analyze_button and query.strip():
             progress_bar.progress(5, text="Step 1/6: Parsing your query…")
             parser = QueryParser()
             parsed = parser.parse(query)
+
+            # Input validation control (Step 9: Check for missing information)
+            if not parsed.is_valid:
+                progress_bar.empty()
+                st.warning(f"⚠️ **Incomplete Request:** {parsed.clarification_prompt}")
+                if parsed.missing_fields:
+                    st.info("**Missing required information:**\n- " + "\n- ".join(parsed.missing_fields))
+                st.stop()
 
             with st.expander("📋 Parsed Query", expanded=False):
                 st.json({
