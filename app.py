@@ -254,7 +254,14 @@ if analyze_button and query.strip():
 
             # Store result in session state
             st.session_state["result"] = result
-            progress_bar.progress(100, text="✅ Analysis complete!")
+
+            # Integration (Iteration 2): Automatically append to Portfolio Risk Audit Ledger
+            reports_dir = Path(__file__).parent / "reports"
+            formatter = OutputFormatter()
+            formatter.append_to_audit_ledger(result, reports_dir)
+
+            progress_bar.progress(100, text="✅ Analysis complete & logged to Portfolio Risk Ledger!")
+
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
@@ -344,7 +351,7 @@ if "result" in st.session_state:
     st.divider()
     formatter = OutputFormatter()
 
-    col_dl1, col_dl2 = st.columns(2)
+    col_dl1, col_dl2, col_dl3 = st.columns(3)
     with col_dl1:
         html_report = formatter.to_html(result)
         st.download_button(
@@ -363,3 +370,14 @@ if "result" in st.session_state:
             mime="text/markdown",
             use_container_width=True,
         )
+    with col_dl3:
+        csv_report = formatter.to_csv(result)
+        st.download_button(
+            "📊 Export to CSV (Spreadsheet)",
+            data=csv_report,
+            file_name=f"footnote_changes_{result.ticker}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+    st.info("📋 **System Integration Active:** This analysis has been recorded to the master **Portfolio Risk Audit Ledger** (`reports/portfolio_audit_ledger.csv`).")

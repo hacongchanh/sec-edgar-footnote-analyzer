@@ -5,6 +5,8 @@ Uses the Rich library for beautiful console tables and generates standalone
 HTML reports with color-coded severity and collapsible detail sections.
 """
 
+import csv
+import io
 import html as html_module
 from datetime import datetime
 from pathlib import Path
@@ -462,3 +464,107 @@ class OutputFormatter:
         filepath = output_dir / filename
         filepath.write_text(self.to_markdown(result), encoding="utf-8")
         return filepath
+
+    # ── CSV Integration (Iteration 2) ──────────────────────────────────
+
+    def to_csv(self, result: AnalysisResult) -> str:
+        """Export all individual footnote changes to a CSV string."""
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Note Number",
+            "Note Title",
+            "Category",
+            "Severity",
+            "Change Description",
+            "Analyst Implication",
+            "Recommended Action",
+            "Current Text Excerpt",
+            "Previous Text Excerpt",
+            "SEC Source URL",
+        ])
+        for c in result.changes:
+            writer.writerow([
+                c.note_number,
+                c.note_title,
+                c.category,
+                c.severity,
+                c.change_description,
+                c.analyst_implication,
+                c.recommended_action,
+                c.current_text_excerpt,
+                c.previous_text_excerpt,
+                result.current_filing_url,
+            ])
+        return output.getvalue()
+
+    def save_csv(self, result: AnalysisResult, output_dir: str | Path = ".") -> Path:
+        """Save detailed changes to a CSV file and return the file path."""
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"footnote_changes_{result.ticker}_{timestamp}.csv"
+        filepath = output_dir / filename
+        filepath.write_text(self.to_csv(result), encoding="utf-8")
+        return filepath
+
+    def append_to_audit_ledger(self, result: AnalysisResult, output_dir: str | Path = "reports") -> Path:
+        """
+        Integration: Append a structured review record to the master Portfolio Risk Ledger CSV.
+        Creates the ledger with headers if it does not exist yet.
+        """
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        ledger_path = output_dir / "portfolio_audit_ledger.csv"
+        file_exists = ledger_path.exists()
+
+        high_count = sum(1 for c in result.changes if c.severity == "HIGH")
+        med_count = sum(1 for c in result.changes if c.severity == "MEDIUM")
+        low_count = sum(1 for c in result.changes if c.severity == "LOW")
+        human_review = "YES" if high_count > 0 else "NO"
+
+        # Determine primary risk summary
+        top_risk = "No material changes detected"
+        for c in result.changes:
+            if c.severity == "HIGH":
+                top_risk = f"Note {c.note_number} ({c.category}): {c.change_description[:120]}"
+                break
+        if top_risk == "No material changes detected" and result.changes:
+            top_risk = f"Note {result.changes[0].note_number} ({result.changes[0].category}): {result.changes[0].change_description[:120]}"
+
+        with open(ledger_path, mode="a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    "Timestamp",
+                    "Company",
+                    "Ticker",
+                    "Current_Filing",
+                    "Previous_Filing",
+                    "Total_Notes_Compared",
+                    "Total_Changes",
+                    "High_Severity_Count",
+                    "Medium_Severity_Count",
+                    "Low_Severity_Count",
+                    "Human_Review_Required",
+                    "Top_Risk_Summary",
+                    "SEC_Filing_URL",
+                ])
+            writer.writerow([
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                result.company,
+                result.ticker,
+                result.current_filing,
+                result.previous_filing,
+                result.total_notes_compared,
+                len(result.changes),
+                high_count,
+                med_count,
+                low_count,
+                human_review,
+                top_risk,
+                result.current_filing_url,
+            ])
+
+        return ledger_path
+
