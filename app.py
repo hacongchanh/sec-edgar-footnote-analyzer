@@ -373,11 +373,38 @@ if "result" in st.session_state:
     with col_dl3:
         csv_report = formatter.to_csv(result)
         st.download_button(
-            "📊 Export to CSV (Spreadsheet)",
+            "📊 Download Changes CSV",
             data=csv_report,
             file_name=f"footnote_changes_{result.ticker}.csv",
             mime="text/csv",
             use_container_width=True,
         )
 
-    st.info("📋 **System Integration Active:** This analysis has been recorded to the master **Portfolio Risk Audit Ledger** (`reports/portfolio_audit_ledger.csv`).")
+    # ── Master Portfolio Risk Audit Ledger Integration (Solution 2) ────────
+    st.divider()
+    st.subheader("📋 Master Portfolio Risk Audit Ledger (System Integration)")
+    st.caption("Centralized cumulative ledger recording all historical analyses performed across your portfolio.")
+
+    reports_dir = Path(__file__).parent / "reports"
+    ledger_path = reports_dir / "portfolio_audit_ledger.csv"
+
+    if ledger_path.exists():
+        try:
+            ledger_df = pd.read_csv(ledger_path)
+            st.dataframe(ledger_df, use_container_width=True, hide_index=True)
+
+            with open(ledger_path, "r", encoding="utf-8") as f:
+                ledger_csv_data = f.read()
+
+            st.download_button(
+                "📥 Download Master Audit Ledger (portfolio_audit_ledger.csv)",
+                data=ledger_csv_data,
+                file_name="portfolio_audit_ledger.csv",
+                mime="text/csv",
+                use_container_width=True,
+                help="Click to download the updated cumulative ledger directly onto your computer.",
+            )
+            st.success("✅ **Integration Synchronized:** Click the download button above to save the updated ledger to your local machine (`reports/portfolio_audit_ledger.csv`).")
+        except Exception as e:
+            st.warning(f"Could not load cumulative ledger: {e}")
+
