@@ -481,7 +481,8 @@ class OutputFormatter:
             "Recommended Action",
             "Current Text Excerpt",
             "Previous Text Excerpt",
-            "SEC Source URL",
+            "Latest_Filing_URL",
+            "Previous_Filing_URL",
         ])
         for c in result.changes:
             writer.writerow([
@@ -495,6 +496,7 @@ class OutputFormatter:
                 c.current_text_excerpt,
                 c.previous_text_excerpt,
                 result.current_filing_url,
+                result.previous_filing_url,
             ])
         return output.getvalue()
 
@@ -516,7 +518,18 @@ class OutputFormatter:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         ledger_path = output_dir / "portfolio_audit_ledger.csv"
+
+        # Auto-reset if old schema with single URL column is present
         file_exists = ledger_path.exists()
+        if file_exists:
+            try:
+                with open(ledger_path, "r", encoding="utf-8") as f:
+                    header_line = f.readline()
+                    if "Previous_Filing_URL" not in header_line:
+                        ledger_path.unlink()
+                        file_exists = False
+            except Exception:
+                file_exists = False
 
         high_count = sum(1 for c in result.changes if c.severity == "HIGH")
         med_count = sum(1 for c in result.changes if c.severity == "MEDIUM")
@@ -548,7 +561,8 @@ class OutputFormatter:
                     "Low_Severity_Count",
                     "Human_Review_Required",
                     "Top_Risk_Summary",
-                    "SEC_Filing_URL",
+                    "Latest_Filing_URL",
+                    "Previous_Filing_URL",
                 ])
             writer.writerow([
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -564,6 +578,7 @@ class OutputFormatter:
                 human_review,
                 top_risk,
                 result.current_filing_url,
+                result.previous_filing_url,
             ])
 
         return ledger_path

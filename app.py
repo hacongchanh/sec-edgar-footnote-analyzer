@@ -393,18 +393,56 @@ if "result" in st.session_state:
             ledger_df = pd.read_csv(ledger_path)
             st.dataframe(ledger_df, use_container_width=True, hide_index=True)
 
-            with open(ledger_path, "r", encoding="utf-8") as f:
-                ledger_csv_data = f.read()
+            col_l1, col_l2 = st.columns([3, 1])
+            with col_l1:
+                with open(ledger_path, "r", encoding="utf-8") as f:
+                    ledger_csv_data = f.read()
 
-            st.download_button(
-                "📥 Download Master Audit Ledger (portfolio_audit_ledger.csv)",
-                data=ledger_csv_data,
-                file_name="portfolio_audit_ledger.csv",
-                mime="text/csv",
-                use_container_width=True,
-                help="Click to download the updated cumulative ledger directly onto your computer.",
-            )
-            st.success("✅ **Integration Synchronized:** Click the download button above to save the updated ledger to your local machine (`reports/portfolio_audit_ledger.csv`).")
+                st.download_button(
+                    "📥 Download Master Audit Ledger (portfolio_audit_ledger.csv)",
+                    data=ledger_csv_data,
+                    file_name="portfolio_audit_ledger.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Click to download the updated cumulative ledger directly onto your computer.",
+                )
+            with col_l2:
+                if st.button("🗑️ Erase Ledger Data", use_container_width=True, help="Wipe all historical records from the ledger on this server."):
+                    ledger_path.unlink(missing_ok=True)
+                    st.success("✅ Ledger data erased!")
+                    st.rerun()
+
+            st.success("✅ **Integration Synchronized:** 2 URL columns (`Latest_Filing_URL` and `Previous_Filing_URL`) are recorded.")
         except Exception as e:
             st.warning(f"Could not load cumulative ledger: {e}")
+else:
+    # Allow viewing and erasing the ledger from the home screen before a query is run
+    reports_dir = Path(__file__).parent / "reports"
+    ledger_path = reports_dir / "portfolio_audit_ledger.csv"
+    if ledger_path.exists():
+        with st.expander("📋 View / Manage Master Portfolio Risk Audit Ledger", expanded=False):
+            st.caption("Centralized cumulative ledger recording all historical analyses performed across your portfolio.")
+            try:
+                ledger_df = pd.read_csv(ledger_path)
+                st.dataframe(ledger_df, use_container_width=True, hide_index=True)
+                col_l1, col_l2 = st.columns([3, 1])
+                with col_l1:
+                    with open(ledger_path, "r", encoding="utf-8") as f:
+                        ledger_csv_data = f.read()
+                    st.download_button(
+                        "📥 Download Master Audit Ledger (portfolio_audit_ledger.csv)",
+                        data=ledger_csv_data,
+                        file_name="portfolio_audit_ledger.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="dl_ledger_home",
+                    )
+                with col_l2:
+                    if st.button("🗑️ Erase Ledger Data", use_container_width=True, key="clear_ledger_home"):
+                        ledger_path.unlink(missing_ok=True)
+                        st.success("✅ Ledger data erased!")
+                        st.rerun()
+            except Exception as e:
+                st.warning(f"Could not load cumulative ledger: {e}")
+
 
