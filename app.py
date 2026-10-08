@@ -5,6 +5,7 @@ Run with:
     streamlit run app.py
 """
 
+import re
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -15,6 +16,13 @@ from footnote_extractor import FootnoteExtractor
 from query_parser import QueryParser
 from analyzer import FootnoteAnalyzer, AnalysisResult
 from output_formatter import OutputFormatter
+
+
+def safe_markdown(text: str) -> str:
+    """Escape unescaped dollar signs so Streamlit KaTeX does not distort financial text into italic math formulas without spaces."""
+    if not text:
+        return ""
+    return re.sub(r'(?<!\\)\$', r'\$', str(text))
 
 # ── Page configuration ─────────────────────────────────────────────────────
 
@@ -327,7 +335,7 @@ if "result" in st.session_state:
             with st.expander(
                 f"{emoji} Note {c.note_number}: {c.note_title} — {c.category} ({c.severity})"
             ):
-                st.markdown(f"**Change:** {c.change_description}")
+                st.markdown(safe_markdown(f"**Change:** {c.change_description}"))
                 col_prev, col_curr = st.columns(2)
                 with col_prev:
                     st.markdown("**◀ Previous Filing:**")
@@ -335,12 +343,13 @@ if "result" in st.session_state:
                 with col_curr:
                     st.markdown("**▶ Current Filing:**")
                     st.text(c.current_text_excerpt or "(no excerpt)")
-                st.markdown(f"**Implication:** {c.analyst_implication}")
-                st.markdown(f"**Action:** {c.recommended_action}")
+                st.markdown(safe_markdown(f"**Implication:** {c.analyst_implication}"))
+                st.markdown(safe_markdown(f"**Action:** {c.recommended_action}"))
 
     # Executive Summary
     st.subheader("📋 Executive Summary")
-    st.markdown(result.summary)
+    st.markdown(safe_markdown(result.summary))
+
 
     # Source links
     st.subheader("🔗 Source Filings")

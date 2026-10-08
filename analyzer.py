@@ -7,6 +7,7 @@ two SEC filings, identifying and classifying significant changes.
 
 import json
 import time
+import re
 from typing import Optional
 
 from google import genai
@@ -374,8 +375,9 @@ for valuation, risk, and financial reporting."""
                         print(f"    \u26a0 Gemini API temporarily unavailable ({status}), retrying in {delay}s\u2026")
                         time.sleep(delay)
                         continue
-                    raise
-            return response.text.strip()
+            clean_summary = response.text.strip()
+            # Escape dollar signs so markdown parsers (Streamlit / KaTeX) do not render them as italic math formulas without spaces
+            return re.sub(r'(?<!\\)\$', r'\$', clean_summary)
         except Exception as e:
             # Fallback: generate a basic summary
             high = sum(1 for c in changes if c.severity == "HIGH")

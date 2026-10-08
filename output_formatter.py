@@ -7,6 +7,7 @@ HTML reports with color-coded severity and collapsible detail sections.
 
 import csv
 import io
+import re
 import html as html_module
 from datetime import datetime
 from pathlib import Path
@@ -438,7 +439,7 @@ class OutputFormatter:
 
         lines.append("## Executive Summary")
         lines.append("")
-        lines.append(result.summary)
+        lines.append(re.sub(r'(?<!\\)\$', r'\$', result.summary))
         lines.append("")
 
         return "\n".join(lines)
