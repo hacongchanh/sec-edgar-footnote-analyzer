@@ -68,7 +68,24 @@ class OutputFormatter:
         self.console.print(f"  📄 Previous: [bold]{result.previous_filing}[/bold]")
         self.console.print(f"     URL: [dim]{result.previous_filing_url}[/dim]")
         self.console.print(f"  📝 Notes compared: [bold]{result.total_notes_compared}[/bold]")
+        if getattr(result, "checkpoint_hits", 0) > 0:
+            self.console.print(f"  ⚡ Checkpoint cache: [bold cyan]{result.checkpoint_hits}[/bold cyan] note(s) loaded from disk state")
         self.console.print()
+
+        # Human Review & Escalation Status
+        if getattr(result, "human_review_required", False):
+            escalation_reasons_text = "\n".join([f"  • {r}" for r in getattr(result, "escalation_reasons", [])])
+            self.console.print(Panel(
+                f"[bold red]Status: MANDATORY HUMAN REVIEW REQUIRED[/bold red]\n\n"
+                f"[bold]Triggered Escalation Policy Criteria:[/bold]\n{escalation_reasons_text}",
+                title="🚨 Analyst Escalation Gate",
+                border_style="red",
+                padding=(1, 2),
+            ))
+            self.console.print()
+        else:
+            self.console.print("  [bold green]✅ Human Review Status: Routine (No mandatory escalation triggers detected)[/bold green]\n")
+
 
         # Stats bar
         high = sum(1 for c in result.changes if c.severity == "HIGH")
@@ -236,6 +253,16 @@ class OutputFormatter:
                 <ul>{removed_items}</ul>
             </div>"""
 
+        escalation_html = ""
+        if getattr(result, "human_review_required", False):
+            reasons_items = "".join(f"<li>{esc(r)}</li>" for r in getattr(result, "escalation_reasons", []))
+            escalation_html = f"""
+            <div class="alert alert-added" style="background: #fef2f2; border-left: 5px solid #dc2626; margin: 1.5rem 0;">
+                <h3 style="color: #991b1b; font-size: 1.1rem; margin-bottom: 0.5rem;">🚨 MANDATORY HUMAN REVIEW REQUIRED</h3>
+                <p style="color: #7f1d1d; margin-bottom: 0.5rem; font-size: 0.9rem;">The surrounding harness triggered mandatory review under ground truth policy rules:</p>
+                <ul style="color: #991b1b; font-size: 0.9rem; padding-left: 1.5rem;">{reasons_items}</ul>
+            </div>"""
+
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         return f"""<!DOCTYPE html>
@@ -328,6 +355,7 @@ class OutputFormatter:
 
         {added_html}
         {removed_html}
+        {escalation_html}
 
         <table>
             <thead>
@@ -378,16 +406,26 @@ class OutputFormatter:
             f"",
             f"**Notes Compared:** {result.total_notes_compared}",
             f"",
-            f"## Change Summary",
-            f"",
-            f"| Severity | Count |",
-            f"|----------|-------|",
+            f"**Human Review Required:** {'🚨 YES' if getattr(result, 'human_review_required', False) else '✅ NO (Routine)'}",
+        ]
+        if getattr(result, "human_review_required", False) and getattr(result, "escalation_reasons", []):
+            lines.append("")
+            lines.append("**Escalation Policy Triggers:**")
+            for r in result.escalation_reasons:
+                lines.append(f"- {r}")
+
+        lines.extend([
+            "",
+            "## Change Summary",
+            "",
+            "| Severity | Count |",
+            "|----------|-------|",
             f"| 🔴 HIGH | {high} |",
             f"| 🟡 MEDIUM | {med} |",
             f"| 🟢 LOW | {low} |",
             f"| **Total** | **{len(result.changes)}** |",
-            f"",
-        ]
+            "",
+        ])
 
         if result.notes_added:
             lines.append("## ⚠ Notes Added")
@@ -520,13 +558,13 @@ class OutputFormatter:
         output_dir.mkdir(parents=True, exist_ok=True)
         ledger_path = output_dir / "portfolio_audit_ledger.csv"
 
-        # Auto-reset if old schema with single URL column is present
+        # Auto-reset if old schema lacking Escalation_Reason or Previous_Filing_URL is present
         file_exists = ledger_path.exists()
         if file_exists:
             try:
                 with open(ledger_path, "r", encoding="utf-8") as f:
                     header_line = f.readline()
-                    if "Previous_Filing_URL" not in header_line:
+                    if "Escalation_Reason" not in header_line or "Previous_Filing_URL" not in header_line:
                         ledger_path.unlink()
                         file_exists = False
             except Exception:
@@ -535,7 +573,8 @@ class OutputFormatter:
         high_count = sum(1 for c in result.changes if c.severity == "HIGH")
         med_count = sum(1 for c in result.changes if c.severity == "MEDIUM")
         low_count = sum(1 for c in result.changes if c.severity == "LOW")
-        human_review = "YES" if high_count > 0 else "NO"
+        human_review = "YES" if (getattr(result, "human_review_required", False) or high_count > 0) else "NO"
+        escalation_reason_str = " | ".join(getattr(result, "escalation_reasons", [])) if getattr(result, "escalation_reasons", []) else "Routine: within baseline variance"
 
         # Determine primary risk summary
         top_risk = "No material changes detected"
@@ -561,6 +600,7 @@ class OutputFormatter:
                     "Medium_Severity_Count",
                     "Low_Severity_Count",
                     "Human_Review_Required",
+                    "Escalation_Reason",
                     "Top_Risk_Summary",
                     "Latest_Filing_URL",
                     "Previous_Filing_URL",
@@ -577,6 +617,7 @@ class OutputFormatter:
                 med_count,
                 low_count,
                 human_review,
+                escalation_reason_str,
                 top_risk,
                 result.current_filing_url,
                 result.previous_filing_url,

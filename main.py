@@ -50,6 +50,19 @@ def run_analysis(query: str) -> None:
     console.print("[bold cyan]Step 1/6:[/bold cyan] Parsing your query…")
     parser = QueryParser()
     parsed = parser.parse(query)
+
+    # Input validation control (Step 9: Check for missing information)
+    if not parsed.is_valid:
+        console.print()
+        console.print(Panel(
+            f"[bold yellow]⚠️ Incomplete Request[/bold yellow]\n\n"
+            f"{parsed.clarification_prompt}\n\n"
+            f"[dim]Missing details: {', '.join(parsed.missing_fields)}[/dim]",
+            title="Missing Information",
+            border_style="yellow",
+        ))
+        return
+
     console.print(f"  Company: [bold]{parsed.company_name or '—'}[/bold]")
     console.print(f"  Ticker:  [bold]{parsed.ticker or '—'}[/bold]")
     console.print(f"  Form:    [bold]{parsed.form_type}[/bold]")
@@ -143,12 +156,16 @@ def run_analysis(query: str) -> None:
     formatter = OutputFormatter()
     formatter.print_console(result)
 
-    # Save reports
+    # Save reports & update audit ledger (Iteration 2 Integration)
     reports_dir = Path(__file__).parent / "reports"
     html_path = formatter.save_html(result, reports_dir)
     md_path = formatter.save_markdown(result, reports_dir)
+    csv_path = formatter.save_csv(result, reports_dir)
+    ledger_path = formatter.append_to_audit_ledger(result, reports_dir)
     console.print(f"  📁 HTML report saved: [link=file://{html_path}]{html_path}[/link]")
     console.print(f"  📁 Markdown report saved: [link=file://{md_path}]{md_path}[/link]")
+    console.print(f"  📁 Detailed CSV exported: [link=file://{csv_path}]{csv_path}[/link]")
+    console.print(f"  📊 Portfolio Audit Ledger updated: [link=file://{ledger_path}]{ledger_path}[/link]")
     console.print()
 
 

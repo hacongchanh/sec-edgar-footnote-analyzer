@@ -41,10 +41,19 @@ SEC_ARCHIVES_BASE = "https://www.sec.gov/Archives/edgar/data"
 SEC_REQUEST_DELAY: float = 0.12  # seconds between requests
 
 # ---------------------------------------------------------------------------
-# Local caching
+# Local caching & checkpoints
 # ---------------------------------------------------------------------------
 CACHE_DIR: Path = _PROJECT_ROOT / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
+
+CHECKPOINTS_DIR: Path = CACHE_DIR / "checkpoints"
+CHECKPOINTS_DIR.mkdir(exist_ok=True)
+
+# ---------------------------------------------------------------------------
+# Ground Truth Knowledge & Business Rules
+# ---------------------------------------------------------------------------
+GROUND_TRUTH_DIR: Path = _PROJECT_ROOT / "ground_truth"
+
 
 # ---------------------------------------------------------------------------
 # Validation helpers

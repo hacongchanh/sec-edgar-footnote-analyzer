@@ -109,6 +109,14 @@ with st.sidebar:
         st.success("✅ SEC User-Agent configured")
 
     st.divider()
+    st.header("🛡️ Harness Controls")
+    use_checkpoints = st.checkbox(
+        "⚡ Enable State Checkpoints",
+        value=True,
+        help="Saves per-footnote progress to disk. Allows resuming interrupted runs and avoids duplicate LLM calls."
+    )
+
+    st.divider()
     st.header("📖 Example Queries")
     examples = [
         "Analyze Apple's latest 10-Q footnotes vs the previous quarter",
@@ -255,6 +263,7 @@ if analyze_button and query.strip():
                 current_url=current_filing.sec_url,
                 previous_url=previous_filing.sec_url,
                 focus_areas=parsed.focus_areas if parsed.focus_areas else None,
+                use_cache=use_checkpoints,
             )
 
             # Step 6: Display results
@@ -283,6 +292,19 @@ if "result" in st.session_state:
     st.divider()
     st.header(f"📊 Results: {result.company} ({result.ticker})")
 
+    # Task State Checkpoint feedback
+    if getattr(result, "checkpoint_hits", 0) > 0:
+        st.info(f"⚡ **Task State Resumed:** {result.checkpoint_hits} of {result.total_notes_compared} footnote comparison(s) loaded directly from local checkpoint cache (zero redundant LLM API calls).")
+
+    # Analyst Escalation Gate (Deterministic Application Policy)
+    if getattr(result, "human_review_required", False):
+        st.error("🚨 **MANDATORY HUMAN REVIEW REQUIRED**")
+        st.markdown("**Triggered Ground Truth Policy Criteria:**")
+        for r in getattr(result, "escalation_reasons", []):
+            st.markdown(f"- {r}")
+    else:
+        st.success("✅ **Human Review Status:** Routine (All disclosures within standard baseline parameters)")
+
     # Stats cards
     high = sum(1 for c in result.changes if c.severity == "HIGH")
     med = sum(1 for c in result.changes if c.severity == "MEDIUM")
@@ -293,6 +315,20 @@ if "result" in st.session_state:
     c2.metric("🟡 Medium Severity", med)
     c3.metric("🟢 Low Severity", low)
     c4.metric("Total Changes", len(result.changes))
+
+    # Semantic Alignment & Taxonomy Details
+    if getattr(result, "alignment_details", []):
+        with st.expander("🔍 Footnote Semantic Alignment & Taxonomy Mapping", expanded=False):
+            st.caption("How footnotes were paired across comparison periods according to ground truth priority rules:")
+            align_data = []
+            for a in result.alignment_details:
+                align_data.append({
+                    "Current Note": f"Note {a.current_number}: {a.current_title}" if a.current_number is not None else "(None - Removed)",
+                    "Previous Note": f"Note {a.previous_number}: {a.previous_title}" if a.previous_number is not None else "(None - Added)",
+                    "Alignment Type": a.match_type,
+                    "Confidence": f"{a.match_score * 100:.0f}%" if a.match_score > 0 else "N/A",
+                })
+            st.dataframe(pd.DataFrame(align_data), use_container_width=True, hide_index=True)
 
     # Added/removed notes
     if result.notes_added:
@@ -335,6 +371,8 @@ if "result" in st.session_state:
             with st.expander(
                 f"{emoji} Note {c.note_number}: {c.note_title} — {c.category} ({c.severity})"
             ):
+                if getattr(c, "match_rationale", None):
+                    st.caption(f"🧭 Alignment Basis: {c.match_rationale}")
                 st.markdown(safe_markdown(f"**Change:** {c.change_description}"))
                 col_prev, col_curr = st.columns(2)
                 with col_prev:
