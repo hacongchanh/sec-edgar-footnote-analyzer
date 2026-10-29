@@ -207,6 +207,9 @@ class EdgarClient:
                     base_url=base_url,
                     sec_url=sec_url,
                 ))
+
+        # Ensure filings are strictly sorted chronologically descending by report_date / filing_date
+        filings.sort(key=lambda f: (f.report_date or f.filing_date, f.filing_date), reverse=True)
         return filings
 
     def select_filing_pair(
@@ -221,57 +224,107 @@ class EdgarClient:
         Hints can be "latest", "previous", a date like "2024-06-30", 
         a quarter like "Q2 2024", or a year like "2024".
 
-        Defaults: current = latest filing, previous = second-latest filing.
+        Defaults: current = latest filing, previous = immediately preceding filing.
         """
         if len(filings) < 2:
             raise ValueError(
                 f"Need at least 2 filings to compare, but only found {len(filings)}."
             )
 
-        def _match(hint: str | None, filings_list: list[FilingMeta], default_idx: int) -> FilingMeta:
-            if hint is None or hint.lower() in ("latest", "most recent"):
-                return filings_list[default_idx]
-            if hint.lower() in ("previous", "prior", "preceding"):
-                return filings_list[min(default_idx + 1, len(filings_list) - 1)]
+        prior_keywords = {
+            "previous", "prior", "preceding", "prior period", "previous period",
+            "prior year", "previous year", "last year", "prior quarter", "previous quarter",
+            "last quarter", "second latest", "2nd latest", "second most recent",
+            "immediately preceding", "1 year ago", "one year ago", "prior 10-k",
+            "prior 10-q", "previous 10-k", "previous 10-q",
+        }
 
-            hint_lower = hint.lower().strip()
+        # 1. Match current filing
+        current: FilingMeta | None = None
+        if current_hint is not None:
+            c_hint_lower = current_hint.lower().strip()
+            if c_hint_lower not in ("latest", "most recent", "current"):
+                # Try exact date match (YYYY-MM-DD)
+                for f in filings:
+                    if f.filing_date == c_hint_lower or f.report_date == c_hint_lower:
+                        current = f
+                        break
 
-            # Try exact date match (YYYY-MM-DD)
-            for f in filings_list:
-                if f.filing_date == hint_lower or f.report_date == hint_lower:
-                    return f
+                # Try quarter match (e.g., "Q2 2024")
+                if not current:
+                    q_match = re.match(r"q(\d)\s*(\d{4})", c_hint_lower)
+                    if q_match:
+                        quarter, year = int(q_match.group(1)), q_match.group(2)
+                        quarter_months = {1: ("01", "03"), 2: ("04", "06"), 3: ("07", "09"), 4: ("10", "12")}
+                        if quarter in quarter_months:
+                            start_m, end_m = quarter_months[quarter]
+                            for f in filings:
+                                if f.report_date.startswith(year):
+                                    month = f.report_date[5:7]
+                                    if start_m <= month <= end_m:
+                                        current = f
+                                        break
 
-            # Try quarter match (e.g., "Q2 2024")
-            q_match = re.match(r"q(\d)\s*(\d{4})", hint_lower)
-            if q_match:
-                quarter, year = int(q_match.group(1)), q_match.group(2)
-                quarter_months = {1: ("01", "03"), 2: ("04", "06"), 3: ("07", "09"), 4: ("10", "12")}
-                if quarter in quarter_months:
-                    start_m, end_m = quarter_months[quarter]
-                    for f in filings_list:
-                        if f.report_date.startswith(year):
-                            month = f.report_date[5:7]
-                            if start_m <= month <= end_m:
-                                return f
+                # Try year match
+                if not current and re.match(r"^\d{4}$", c_hint_lower):
+                    for f in filings:
+                        if f.report_date.startswith(c_hint_lower) or f.filing_date.startswith(c_hint_lower):
+                            current = f
+                            break
 
-            # Try year match
-            for f in filings_list:
-                if hint_lower in f.report_date or hint_lower in f.filing_date:
-                    return f
+        if current is None:
+            current = filings[0]
 
-            # Fallback to default
-            return filings_list[default_idx]
+        curr_idx = filings.index(current)
 
-        current = _match(current_hint, filings, 0)
-        previous = _match(previous_hint, filings, 1)
+        # 2. Match previous filing
+        previous: FilingMeta | None = None
+        if previous_hint is not None:
+            p_hint_lower = previous_hint.lower().strip()
+            if p_hint_lower in prior_keywords:
+                # Select the consecutive filing immediately after current
+                next_idx = min(curr_idx + 1, len(filings) - 1)
+                previous = filings[next_idx]
+            else:
+                # Try exact date match (YYYY-MM-DD)
+                for f in filings:
+                    if f.filing_date == p_hint_lower or f.report_date == p_hint_lower:
+                        previous = f
+                        break
+
+                # Try quarter match (e.g., "Q2 2024")
+                if not previous:
+                    q_match = re.match(r"q(\d)\s*(\d{4})", p_hint_lower)
+                    if q_match:
+                        quarter, year = int(q_match.group(1)), q_match.group(2)
+                        quarter_months = {1: ("01", "03"), 2: ("04", "06"), 3: ("07", "09"), 4: ("10", "12")}
+                        if quarter in quarter_months:
+                            start_m, end_m = quarter_months[quarter]
+                            for f in filings:
+                                if f.report_date.startswith(year):
+                                    month = f.report_date[5:7]
+                                    if start_m <= month <= end_m:
+                                        previous = f
+                                        break
+
+                # Try year match
+                if not previous and re.match(r"^\d{4}$", p_hint_lower):
+                    for f in filings:
+                        if f.report_date.startswith(p_hint_lower) or f.filing_date.startswith(p_hint_lower):
+                            previous = f
+                            break
+
+        if previous is None:
+            # Default to sequential consecutive filing immediately preceding current
+            next_idx = min(curr_idx + 1, len(filings) - 1)
+            previous = filings[next_idx]
 
         # Ensure we don't compare a filing with itself
         if current.accession_number == previous.accession_number:
-            idx = filings.index(current)
-            if idx + 1 < len(filings):
-                previous = filings[idx + 1]
-            elif idx - 1 >= 0:
-                previous = filings[idx - 1]
+            if curr_idx + 1 < len(filings):
+                previous = filings[curr_idx + 1]
+            elif curr_idx - 1 >= 0:
+                previous = filings[curr_idx - 1]
             else:
                 raise ValueError("Cannot find two distinct filings to compare.")
 

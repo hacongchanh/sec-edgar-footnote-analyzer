@@ -192,10 +192,14 @@ if analyze_button and query.strip():
                     )
                     missing_fields = missing_details or missing_fields
 
-                st.warning(f"⚠️ **Incomplete Request:** {clarification_prompt}")
+                st.warning(f"⚠️ **Incomplete Request / Refusal:** {clarification_prompt}")
                 if missing_fields:
-                    st.info("**Missing required information:**\n- " + "\n- ".join(missing_fields))
+                    st.info("**Details:**\n- " + "\n- ".join(missing_fields))
                 st.stop()
+
+            # Surface action warning banner if an autonomous execution command was submitted with the query
+            if getattr(parsed, "action_warning", None):
+                st.warning(parsed.action_warning)
 
             with st.expander("📋 Parsed Query", expanded=False):
                 st.json({
@@ -264,6 +268,7 @@ if analyze_button and query.strip():
                 previous_url=previous_filing.sec_url,
                 focus_areas=parsed.focus_areas if parsed.focus_areas else None,
                 use_cache=use_checkpoints,
+                action_warning=getattr(parsed, "action_warning", None),
             )
 
             # Step 6: Display results
@@ -291,6 +296,10 @@ if "result" in st.session_state:
 
     st.divider()
     st.header(f"📊 Results: {result.company} ({result.ticker})")
+
+    # Action refusal banner in results
+    if getattr(result, "action_warning", None):
+        st.warning(result.action_warning)
 
     # Task State Checkpoint feedback
     if getattr(result, "checkpoint_hits", 0) > 0:

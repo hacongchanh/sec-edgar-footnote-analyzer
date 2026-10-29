@@ -73,6 +73,16 @@ class OutputFormatter:
         self.console.print()
 
         # Human Review & Escalation Status
+        if getattr(result, "action_warning", None):
+            self.console.print(Panel(
+                f"[bold red]{result.action_warning}[/bold red]\n\n"
+                f"[dim]The informational footnote analysis proceeded without executing any requested actions.[/dim]",
+                title="🛡️ Autonomous Action Refused",
+                border_style="red",
+                padding=(1, 2),
+            ))
+            self.console.print()
+
         if getattr(result, "human_review_required", False):
             escalation_reasons_text = "\n".join([f"  • {r}" for r in getattr(result, "escalation_reasons", [])])
             self.console.print(Panel(
@@ -263,6 +273,14 @@ class OutputFormatter:
                 <ul style="color: #991b1b; font-size: 0.9rem; padding-left: 1.5rem;">{reasons_items}</ul>
             </div>"""
 
+        action_refusal_html = ""
+        if getattr(result, "action_warning", None):
+            action_refusal_html = f"""
+            <div class="alert alert-added" style="background: #fef2f2; border-left: 5px solid #dc2626; margin: 1.5rem 0;">
+                <h3 style="color: #991b1b; font-size: 1.1rem; margin-bottom: 0.5rem;">🛡️ AUTONOMOUS ACTION REFUSED</h3>
+                <p style="color: #7f1d1d; font-size: 0.95rem;">{esc(result.action_warning)}</p>
+            </div>"""
+
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         return f"""<!DOCTYPE html>
@@ -353,6 +371,7 @@ class OutputFormatter:
             </div>
         </div>
 
+        {action_refusal_html}
         {added_html}
         {removed_html}
         {escalation_html}
@@ -575,6 +594,8 @@ class OutputFormatter:
         low_count = sum(1 for c in result.changes if c.severity == "LOW")
         human_review = "YES" if (getattr(result, "human_review_required", False) or high_count > 0) else "NO"
         escalation_reason_str = " | ".join(getattr(result, "escalation_reasons", [])) if getattr(result, "escalation_reasons", []) else "Routine: within baseline variance"
+        if getattr(result, "action_warning", None):
+            escalation_reason_str = f"[ACTION REFUSED] | {escalation_reason_str}"
 
         # Determine primary risk summary
         top_risk = "No material changes detected"

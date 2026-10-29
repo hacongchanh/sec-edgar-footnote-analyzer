@@ -55,13 +55,24 @@ def run_analysis(query: str) -> None:
     if not parsed.is_valid:
         console.print()
         console.print(Panel(
-            f"[bold yellow]⚠️ Incomplete Request[/bold yellow]\n\n"
+            f"[bold yellow]⚠️ Request Blocked / Incomplete[/bold yellow]\n\n"
             f"{parsed.clarification_prompt}\n\n"
-            f"[dim]Missing details: {', '.join(parsed.missing_fields)}[/dim]",
-            title="Missing Information",
+            f"[dim]Validation details: {', '.join(parsed.missing_fields)}[/dim]",
+            title="Validation / Refusal Gate",
             border_style="yellow",
         ))
         return
+
+    # Autonomous Action Refusal Warning (if mixed with a valid filing analysis)
+    if getattr(parsed, "action_warning", None):
+        console.print()
+        console.print(Panel(
+            f"[bold red]{parsed.action_warning}[/bold red]\n\n"
+            f"[dim]The analytical SEC footnote comparison will proceed, but NO trading, filing, or external actions will be executed.[/dim]",
+            title="🛡️ Autonomous Action Refused",
+            border_style="red",
+        ))
+        console.print()
 
     console.print(f"  Company: [bold]{parsed.company_name or '—'}[/bold]")
     console.print(f"  Ticker:  [bold]{parsed.ticker or '—'}[/bold]")
@@ -146,6 +157,7 @@ def run_analysis(query: str) -> None:
         current_url=current_filing.sec_url,
         previous_url=previous_filing.sec_url,
         focus_areas=parsed.focus_areas if parsed.focus_areas else None,
+        action_warning=getattr(parsed, "action_warning", None),
     )
 
     # ── Step 6: Display results ───────────────────────────────────────

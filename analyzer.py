@@ -90,6 +90,7 @@ class AnalysisResult(BaseModel):
     escalation_reasons: list[str] = []
     checkpoint_hits: int = 0
     alignment_details: list[FootnoteAlignment] = []
+    action_warning: Optional[str] = None
 
 
 # ── Ground Truth Policy & Rule Ingestion ───────────────────────────────────
@@ -566,6 +567,7 @@ class FootnoteAnalyzer:
         previous_url: str,
         focus_areas: list[str] | None = None,
         use_cache: bool = True,
+        action_warning: Optional[str] = None,
     ) -> AnalysisResult:
         """
         Compare footnotes between two filings with semantic alignment,
@@ -677,6 +679,7 @@ class FootnoteAnalyzer:
             escalation_reasons=escalation_reasons,
             checkpoint_hits=checkpoint_hits,
             alignment_details=alignments,
+            action_warning=action_warning,
         )
 
     def _build_system_instruction(self) -> str:
