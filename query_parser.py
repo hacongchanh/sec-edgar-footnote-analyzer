@@ -60,7 +60,22 @@ class QueryParser:
             Ensures company/ticker, filing type (10-K vs 10-Q), and
             filing timeframe are present. If any are missing, flags
             is_valid = False and returns guidance for the user.
+            Intercepts jailbreaks, persona manipulation, and instruction overrides.
         """
+        # Safeguard: Jailbreak & Adversarial Persona Interception
+        jailbreak_match = self._detect_jailbreak(user_input)
+        if jailbreak_match:
+            return ParsedQuery(
+                is_valid=False,
+                missing_fields=[f"Adversarial persona / override attempt detected: '{jailbreak_match}'"],
+                clarification_prompt=(
+                    f"⚠️ Adversarial Request Refused: The system detected a persona manipulation or instruction override attempt ('{jailbreak_match}'). "
+                    f"This agent operates strictly as an objective SEC EDGAR Footnote Analysis Agent and cannot alter its persona, adopt fictional identities "
+                    f"(such as DAN, roleplay, or pretend mode), or bypass financial regulatory frameworks. Please submit a valid financial query instead, "
+                    f"for example: \"Analyze Apple's latest 10-Q filing vs previous quarter\"."
+                ),
+            )
+
         system_prompt = """You are a financial query parser and input validation controller. 
 Extract structured information from the user's natural language request about SEC filing analysis.
 
@@ -117,6 +132,19 @@ Strict Validation Rules:
     def _enforce_validation_safeguards(self, query: ParsedQuery, raw_input: str) -> ParsedQuery:
         """Deterministic programmatic validation safeguards on top of LLM output."""
         import re
+
+        # Intercept persona hijacking, roleplay, and instruction overrides
+        jailbreak_match = self._detect_jailbreak(raw_input)
+        if jailbreak_match:
+            query.is_valid = False
+            query.missing_fields = [f"Adversarial persona / override attempt detected: '{jailbreak_match}'"]
+            query.clarification_prompt = (
+                f"⚠️ Adversarial Request Refused: The system detected a persona manipulation or instruction override attempt ('{jailbreak_match}'). "
+                f"This agent operates strictly as an objective SEC EDGAR Footnote Analysis Agent and cannot alter its persona, adopt fictional identities "
+                f"(such as DAN, roleplay, or pretend mode), or bypass financial regulatory frameworks. Please submit a valid financial query instead, "
+                f"for example: \"Analyze Apple's latest 10-Q filing vs previous quarter\"."
+            )
+            return query
 
         # Normalize "2 latest" / "two most recent" sequential requests
         if re.search(r"\b(?:2|two)\s+(?:latest|most\s+recent)\b", raw_input, re.IGNORECASE):
@@ -281,4 +309,29 @@ Strict Validation Rules:
 
         return self._enforce_validation_safeguards(query, user_input)
 
-        return self._enforce_validation_safeguards(query, user_input)
+    @staticmethod
+    def _detect_jailbreak(text: str) -> Optional[str]:
+        """
+        Deterministic interceptor for persona manipulation, roleplay, and instruction overrides.
+        Blocks attempts to force the agent to act as external personas (DAN, roleplay, pretend)
+        or disregard statutory financial regulatory frameworks.
+        """
+        import re
+
+        patterns = [
+            # Persona hijacking / roleplay addressing the AI
+            r"\b(?:you\s+are\s+now|pretend\s+(?:to\s+be|you\s+are|that\s+you\s+are)?|roleplay\s+(?:as)?|simulate\s+(?:being|that\s+you\s+are)?)\b",
+            r"\b(?:act\s+as\s+(?:an?|my|the|if\s+you\s+were)?|i\s+want\s+you\s+to\s+act\s+as|you\s+must\s+act\s+as)\b",
+            # Known adversarial personas (DAN, etc.)
+            r"\b(?:dan\b(?:\s*\(do\s+anything\s+now\))?|do\s+anything\s+now)\b",
+            # Instruction overrides and jailbreaks
+            r"\b(?:system\s+instruction\s+override|jailbreak|jailbroken)\b",
+            r"\b(?:bypass|disregard|ignore|override)\s+(?:all\s+)?(?:prior|previous|system)?\s*(?:rules|guidelines|restrictions|safeguards|instructions)\b",
+            r"\b(?:completely\s+free\s+from\s+all|unrestricted\s+mode|developer\s+mode|evil\s+twin)\b",
+        ]
+
+        for pat in patterns:
+            match = re.search(pat, text, re.IGNORECASE)
+            if match:
+                return match.group(0).strip()
+        return None
