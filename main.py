@@ -174,6 +174,8 @@ def run_analysis(query: str) -> None:
     md_path = formatter.save_markdown(result, reports_dir)
     csv_path = formatter.save_csv(result, reports_dir)
     ledger_path = formatter.append_to_audit_ledger(result, reports_dir)
+    status_label = "PENDING_HUMAN_APPROVAL" if getattr(result, "human_review_required", False) else "CLEARED_ROUTINE"
+    console.print(f"  🛡️ Delegated Audit Status: [bold]{status_label}[/bold]")
     console.print(f"  📁 HTML report saved: [link=file://{html_path}]{html_path}[/link]")
     console.print(f"  📁 Markdown report saved: [link=file://{md_path}]{md_path}[/link]")
     console.print(f"  📁 Detailed CSV exported: [link=file://{csv_path}]{csv_path}[/link]")

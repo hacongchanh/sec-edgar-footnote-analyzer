@@ -305,14 +305,78 @@ if "result" in st.session_state:
     if getattr(result, "checkpoint_hits", 0) > 0:
         st.info(f"⚡ **Task State Resumed:** {result.checkpoint_hits} of {result.total_notes_compared} footnote comparison(s) loaded directly from local checkpoint cache (zero redundant LLM API calls).")
 
-    # Analyst Escalation Gate (Deterministic Application Policy)
+    # Analyst Escalation Gate (Deterministic Application Policy) & Delegated Authority
+    reports_dir = Path(__file__).parent / "reports"
+    formatter = OutputFormatter()
+    current_status = st.session_state.get(f"audit_status_{result.ticker}", None)
+
     if getattr(result, "human_review_required", False):
         st.error("🚨 **MANDATORY HUMAN REVIEW REQUIRED**")
         st.markdown("**Triggered Ground Truth Policy Criteria:**")
         for r in getattr(result, "escalation_reasons", []):
             st.markdown(f"- {r}")
+
+        # ── Iteration 6: Delegation & Approval Gate Control ────────────────
+        st.markdown("---")
+        st.subheader("🛡️ Delegated Task Authority & Approval Gate")
+
+        if current_status == "APPROVED_CLEARED":
+            st.success(
+                f"✅ **STATUS: APPROVED_CLEARED (Human Authorized)**\n\n"
+                f"**Sign-off Record:** {st.session_state.get(f'audit_notes_{result.ticker}', 'Cleared by Senior Risk Analyst')}\n\n"
+                f"The clearance action was authorized by human review and committed to the master ledger."
+            )
+        elif current_status == "REJECTED_FLAGGED_RISK":
+            st.error(
+                f"❌ **STATUS: REJECTED_FLAGGED_RISK (Human Intervened)**\n\n"
+                f"**Rejection Record:** {st.session_state.get(f'audit_notes_{result.ticker}', 'Rejected by Senior Risk Analyst')}\n\n"
+                f"Clearance was denied. The filing remains flagged as high risk in the master ledger."
+            )
+        else:
+            st.warning(
+                "⏳ **STATUS: PENDING_HUMAN_APPROVAL (Authority Boundary Active)**\n\n"
+                "Under the **Autonomy Contract (Element 4 & 6)**, the agent **lacks organizational authority** to clear this filing independently. "
+                "The audit has been staged in the Approval Queue and requires explicit human sign-off."
+            )
+
+            with st.form(key=f"approval_form_{result.ticker}"):
+                c_rev1, c_rev2 = st.columns([1, 2])
+                with c_rev1:
+                    reviewer_name = st.text_input("Reviewer Name / ID", value="Senior Risk Officer", key=f"rev_name_{result.ticker}")
+                with c_rev2:
+                    reviewer_notes = st.text_input(
+                        "Reviewer Decision Rationale / Notes",
+                        placeholder="e.g., Approved: Credit facility amendment acceptable under current liquidity profile",
+                        key=f"rev_notes_{result.ticker}",
+                    )
+
+                col_btn_app, col_btn_rej = st.columns(2)
+                with col_btn_app:
+                    approve_btn = st.form_submit_button("✅ Approve Clearance", type="primary", use_container_width=True)
+                with col_btn_rej:
+                    reject_btn = st.form_submit_button("❌ Reject / Flag High Risk", use_container_width=True)
+
+                if approve_btn:
+                    notes_record = f"Approved by {reviewer_name}: {reviewer_notes or 'Filing cleared after senior human audit.'}"
+                    formatter.update_ledger_status(result.ticker, "APPROVED_CLEARED", notes_record, reports_dir)
+                    st.session_state[f"audit_status_{result.ticker}"] = "APPROVED_CLEARED"
+                    st.session_state[f"audit_notes_{result.ticker}"] = notes_record
+                    st.success("✅ **Action Executed:** Filing clearance approved and committed to Master Portfolio Risk Ledger!")
+                    st.rerun()
+
+                if reject_btn:
+                    notes_record = f"Rejected by {reviewer_name}: {reviewer_notes or 'Clearance denied; flagged as material disclosure risk.'}"
+                    formatter.update_ledger_status(result.ticker, "REJECTED_FLAGGED_RISK", notes_record, reports_dir)
+                    st.session_state[f"audit_status_{result.ticker}"] = "REJECTED_FLAGGED_RISK"
+                    st.session_state[f"audit_notes_{result.ticker}"] = notes_record
+                    st.error("❌ **Action Executed:** Filing clearance rejected and flagged as high risk in Master Portfolio Risk Ledger!")
+                    st.rerun()
     else:
-        st.success("✅ **Human Review Status:** Routine (All disclosures within standard baseline parameters)")
+        st.success(
+            "✅ **STATUS: CLEARED_ROUTINE (Autonomous Execution)**\n\n"
+            "All footnote disclosures are within baseline tolerance (0 High-Severity items, 0 ASC statutory triggers). "
+            "Under **Autonomy Contract (Element 3)**, the agent has executed autonomous clearance and updated the master ledger."
+        )
 
     # Stats cards
     high = sum(1 for c in result.changes if c.severity == "HIGH")

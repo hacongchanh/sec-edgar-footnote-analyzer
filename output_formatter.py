@@ -571,19 +571,21 @@ class OutputFormatter:
     def append_to_audit_ledger(self, result: AnalysisResult, output_dir: str | Path = "reports") -> Path:
         """
         Integration: Append a structured review record to the master Portfolio Risk Ledger CSV.
-        Creates the ledger with headers if it does not exist yet.
+        Implements Autonomy Contract:
+          - Routine filings (0 High, 0 ASC triggers) are assigned Audit_Status = "CLEARED_ROUTINE".
+          - Escalated filings are assigned Audit_Status = "PENDING_HUMAN_APPROVAL".
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         ledger_path = output_dir / "portfolio_audit_ledger.csv"
 
-        # Auto-reset if old schema lacking Escalation_Reason or Previous_Filing_URL is present
+        # Auto-reset if old schema lacking Audit_Status is present
         file_exists = ledger_path.exists()
         if file_exists:
             try:
                 with open(ledger_path, "r", encoding="utf-8") as f:
                     header_line = f.readline()
-                    if "Escalation_Reason" not in header_line or "Previous_Filing_URL" not in header_line:
+                    if "Audit_Status" not in header_line or "Escalation_Reason" not in header_line:
                         ledger_path.unlink()
                         file_exists = False
             except Exception:
@@ -606,6 +608,10 @@ class OutputFormatter:
         if top_risk == "No material changes detected" and result.changes:
             top_risk = f"Note {result.changes[0].note_number} ({result.changes[0].category}): {result.changes[0].change_description[:120]}"
 
+        # Autonomy Contract initial status determination
+        initial_status = "PENDING_HUMAN_APPROVAL" if human_review == "YES" else "CLEARED_ROUTINE"
+        default_notes = "Awaiting senior human sign-off" if human_review == "YES" else "Auto-cleared: within baseline variance"
+
         with open(ledger_path, mode="a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             if not file_exists:
@@ -623,6 +629,8 @@ class OutputFormatter:
                     "Human_Review_Required",
                     "Escalation_Reason",
                     "Top_Risk_Summary",
+                    "Audit_Status",
+                    "Reviewer_Notes",
                     "Latest_Filing_URL",
                     "Previous_Filing_URL",
                 ])
@@ -640,9 +648,69 @@ class OutputFormatter:
                 human_review,
                 escalation_reason_str,
                 top_risk,
+                initial_status,
+                default_notes,
                 result.current_filing_url,
                 result.previous_filing_url,
             ])
 
         return ledger_path
+
+    def update_ledger_status(
+        self,
+        ticker: str,
+        new_status: str,
+        reviewer_notes: str,
+        output_dir: str | Path = "reports",
+    ) -> bool:
+        """
+        Controlled Execution: Update the status and reviewer notes of the latest audit record for a given ticker.
+        Permitted statuses: 'APPROVED_CLEARED', 'REJECTED_FLAGGED_RISK', 'MODIFIED_CONDITIONAL'.
+        """
+        output_dir = Path(output_dir)
+        ledger_path = output_dir / "portfolio_audit_ledger.csv"
+        if not ledger_path.exists():
+            return False
+
+        rows = []
+        updated = False
+        with open(ledger_path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            if not header or "Audit_Status" not in header:
+                return False
+            for row in reader:
+                rows.append(row)
+
+        status_idx = header.index("Audit_Status")
+        notes_idx = header.index("Reviewer_Notes")
+        ticker_idx = header.index("Ticker")
+
+        # Update the latest matching row
+        for i in range(len(rows) - 1, -1, -1):
+            if rows[i][ticker_idx].upper() == ticker.upper():
+                rows[i][status_idx] = new_status
+                rows[i][notes_idx] = f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] {reviewer_notes}"
+                updated = True
+                break
+
+        if updated:
+            with open(ledger_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+                writer.writerows(rows)
+
+        return updated
+
+    def get_audit_ledger_df(self, output_dir: str | Path = "reports"):
+        """Return the master audit ledger as a pandas DataFrame."""
+        import pandas as pd
+        output_dir = Path(output_dir)
+        ledger_path = output_dir / "portfolio_audit_ledger.csv"
+        if not ledger_path.exists():
+            return pd.DataFrame()
+        try:
+            return pd.read_csv(ledger_path)
+        except Exception:
+            return pd.DataFrame()
 
